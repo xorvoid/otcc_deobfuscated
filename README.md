@@ -29,3 +29,5 @@ OTCC assumes all heap memory is <0x80000000 but this is not a gaurentee on moder
 
 I ended up using a shim `malloc` implementation linked into OTCC. This works fine for the stage1 compiler, but the problems arise again for the stage2 compile-the-compiler-with-the-compiler phase. I didn't bother to solve this problem, so the binaries are not able to compile themselves on many systems.
 
+Better results can likely be obtained via either a different distro or by using a machine and distro from the same era as this code. But, I'm not interested enough to do that work.
+
