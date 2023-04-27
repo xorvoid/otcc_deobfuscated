@@ -12,7 +12,7 @@
 #define l ae(
 #define n e)
 #define u d!=
-#define F int
+#define F int 
 #define y (j)
 #define r m=
 #define t +4
@@ -434,7 +434,7 @@ a g-->1){
 e=e t;
 Q=fopen(k e,"r");
 }
-  D=strcpy(R V," int if else while break return for define main ")+48;
+D=strcpy(R V," int if else while break return for define main ")+48;
 v V;
 q=ac V;
 P V;
@@ -443,3 +443,4 @@ c;
 ab(0);
 J(*(int(*)f)k(P+592))(g,n;
 }
+
