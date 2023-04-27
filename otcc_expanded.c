@@ -8,7 +8,6 @@ E(e)
   *(char*) D++ = e;
 }
 
-/* getch ?? ... L is lookback */
 o()
 {
   if (L) {
