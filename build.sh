@@ -10,6 +10,6 @@ if [ "$MACHINE" != "i686" ]; then
     exit 1
 fi
 
-gcc -shared -fPIC -o malloc_shim.so malloc_shim.c
-gcc -std=c89 -m32 -g -Wl,-z,execstack -no-pie -Wno-int-to-pointer-cast -Wno-int-conversion -Wno-builtin-declaration-mismatch -o otcc otcc.c
-gcc -std=c89 -m32 -g -Wl,-z,execstack -no-pie -Wno-int-to-pointer-cast -Wno-int-conversion -Wno-builtin-declaration-mismatch -o otcc_commented otcc_commented.c
+#gcc -shared -fPIC -o malloc_shim.so malloc_shim.c
+gcc -std=c89 -m32 -g -Wl,-z,execstack -no-pie -Wno-int-to-pointer-cast -Wno-int-conversion -Wno-builtin-declaration-mismatch -o otcc otcc_fix.c
+gcc -std=c89 -m32 -g -Wl,-z,execstack -no-pie -Wno-int-to-pointer-cast -Wno-int-conversion -Wno-builtin-declaration-mismatch -o otcc_commented otcc_commented_fix.c
