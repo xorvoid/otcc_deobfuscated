@@ -28,7 +28,7 @@ This will build:
 
 ## Fixes
 
-The original OTCC assumes all heap memory is <0x80000000 but this is not a gaurentee on modern x86-32 distros. In testing, I used Alpine Linux 3.17.3 which does a lot of hardening for security reasons.
+The original OTCC assumes all heap memory and global vars are <0x80000000 but this is not a gaurentee on modern x86-32 distros. In testing, I used Alpine Linux 3.17.3 which does a lot of hardening for security reasons.
 
 To resolve the issue, OTCC was patched to only compile small offsets in `(-512, 512)` as stack offsets
 
