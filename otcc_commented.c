@@ -72,15 +72,17 @@ int macro_text;
 /* when macro expansion is complete, this char should be emitted next */
 int next_char_after_macro;
 
-/* append the symbtab text buffer */
 symkey_append_char(ch)
 {
+  /* append the symbtab text buffer */
+
   *(char*)symkey_end++ = ch;
 }
 
-/* get next char for tokenizing ... possibly macro expansion text */
 char_next()
 {
+  /* get next char for tokenizing ... possibly macro expansion text */
+
   if (macro_text) { /* macro data to expand? */
     tokch = *(char*)macro_text++;
     if (tokch == 2) { /* macro terminaor sentinel */
@@ -104,6 +106,8 @@ unescape_char()
   if (tokch == '\\') {
     char_next();
     if (tokch == 'n') tokch = '\n';
+    /* NOTE: if the tokch is not 'n', we just use the next char. This means that
+       \' \" \\ all "just work" with no additional code =) */
   }
 }
 
@@ -122,7 +126,7 @@ tok_next()
         *(int*)tok = 1;  /* 1 means tok is preproc define */
         *(int*)(tok+4) = symkey_end; /* expansion str in in the symkey buffer */
       }
-      /* note: if not "define", just ignore it */
+      /* NOTE: if not "define", just ignore it */
       /* consume the rest of the preproc line */
       while (tokch != '\n') {
         symkey_append_char(tokch);
@@ -282,23 +286,25 @@ tok_next()
   }
 }
 
-/* Emit raw data into the codegen buf: as many bytes as are used */
 emit(dat)
 {
+  /* Emit raw data into the codegen buf: as many bytes as are used */
+
   while (dat && dat != -1) {
     *(char*)codegen_ptr++ = dat;
     dat = dat >> 8;
   }
 }
 
-/* Fun trick: during compilation we build a linked-list of unpactched targets
-   in the codegen. When a patch is resolved, we simply walk the entire list
-   and patch each entry until NULL is reached. This allows for arbitrarily
-   deep usage of things like "break" or "return". Those just add themselves
-   to the patch list and it gets patched up with everything else!
-*/
 backpatch_all(patch_addr)
 {
+  /* Fun trick: during compilation we build a linked-list of unpactched targets
+     in the codegen. When a patch is resolved, we simply walk the entire list
+     and patch each entry until NULL is reached. This allows for arbitrarily
+     deep usage of things like "break" or "return". Those just add themselves
+     to the patch list and it gets patched up with everything else!
+  */
+
   int next;
   while (patch_addr) {
     next = *(int*)patch_addr;
@@ -307,9 +313,10 @@ backpatch_all(patch_addr)
   }
 }
 
-/* Emit raw data and then a 32-bit immediate: return address of immediate (for back-patching) */
 emit_with_imm32(g,e)
 {
+  /* Emit raw data and then a 32-bit immediate: return address of immediate (for back-patching) */
+
   emit(g);
   *(int*)codegen_ptr = e;
 
@@ -556,16 +563,17 @@ compile_expr()
   compile_expr_prec(11);
 }
 
-/* if (<expr> == 0) goto <patch 32-bit> */
 compile_expr_is_zero_jmp()
 {
+  /* if (<expr> == 0) goto <patch 32-bit> */
   compile_expr();
   return emit_jmp_cond(0,0); /* je <patch 32-bit> */
 }
 
-/* arg: pointer location for patching "break" stmts: caller will do the final patching */
 compile_statement(break_patch_addr)
 {
+  /* arg: pointer location for patching "break" stmts: caller will do the final patching */
+
   int patch_1, patch_2, tmp;
   if (tok == 288) { /* tok == "if" */
     tok_next(); /* consume "if" */
