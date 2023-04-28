@@ -10,8 +10,8 @@ Command: `./build.sh`
 
 This will build:
 
-- `otcc.c => otcc`
-- `otcc_commented.c => otcc_commented`
+- `otcc_fix.c => otcc`
+- `otcc_commented_fix.c => otcc_commented`
 
 ## Running
 
@@ -19,15 +19,23 @@ This will build:
 
 `./otcc_commented otccex.c 5`
 
-## Issues
+## Self-compiling
 
-OTCC assumes all heap memory is <0x80000000 but this is not a gaurentee on modern x86-32 distros. In testing, I used Alpine Linux 3.17.3 which does a lot of hardening for security reasons. This makes it painful for getting OTCC working:
+`./otcc otcc_fix.c otccex.c 5`
 
-- Musl calls `mmap()` were possible, returning addresses >=0x80000000
-- Sbrk() is rejected for non-zero increments
-- `LD_PRELOAD` was attempted but loaded shared-libs were being mapped to high-memory also
+`./otcc_commented otcc_commented_fix.c otccex.c 5`
 
-I ended up using a shim `malloc` implementation linked into OTCC. This works fine for the stage1 compiler, but the problems arise again for the stage2 compile-the-compiler-with-the-compiler phase. I didn't bother to solve this problem, so the binaries are not able to compile themselves on many systems.
 
-Better results can likely be obtained via either a different distro or by using a machine and distro from the same era as this code. But, I'm not interested enough to do that work.
+## Fixes
 
+The original OTCC assumes all heap memory is <0x80000000 but this is not a gaurentee on modern x86-32 distros. In testing, I used Alpine Linux 3.17.3 which does a lot of hardening for security reasons.
+
+To resolve the issue, OTCC was patched to only compile small offsets in `(-512, 512)` as stack offsets
+
+```
+$ diff otcc.c otcc_fix.c
+168c168
+< s((e<512)<<7|5,n;
+---
+> s((e<512&-e<512)<<7|5,n;
+```
