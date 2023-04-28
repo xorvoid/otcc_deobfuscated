@@ -8,15 +8,15 @@ int tokch;
 /* input file pointer: FILE* as an int (C is great! lol) */
 int input_fp;
 
-/* symbol table buffer: all textual symbols and keywords are appended to this
+/* symbol table key buffer: all textual symbols and keywords are appended to this
    buffer. A single space is used as a delimiter for symbols. This buffer is linearly
    searched for matching symbols. Keywords are inserted first amd thus it's easy to
    differentiate them by the resulting serach index. An additional quirk: macro-expansion
    text is also appending to this array and re-consumed in the tokch advance to expand
    macros. Tricky tricky fun fun!
 */
-int symtab_base;
-int symtab_end;
+int symkey_base;
+int symkey_end;
 
 /* pointer to an array of symbol data. Each entry is a pair of ints.
    The pair is used in a few different ways depending on symbol type.
@@ -28,14 +28,14 @@ int symtab_end;
      - library-symbol       <0> <...unused...>
      - unresolved-function  <0> <backpatch-list>
 */
-int symbol_addrs;
+int symval_base;
 
 /* token type, abused in lots of fabulous ways:
      - single-char tokens  <8-bit ascii code>
      - two-char operator:  <1>
      - literal numbers:    <2>   (with literal value stored in "tok_data")
      - keywords:           <some value in [256,536]>
-     - idents:             <pointer to int-pair in symbol_addrs buffer>
+     - idents:             <pointer to int-pair in symval_base buffer>
 */
 int tok;
 
@@ -73,9 +73,9 @@ int macro_text;
 int next_char_after_macro;
 
 /* append the symbtab text buffer */
-symtab_append_char(ch)
+symkey_append_char(ch)
 {
-  *(char*)symtab_end++ = ch;
+  *(char*)symkey_end++ = ch;
 }
 
 /* get next char for tokenizing ... possibly macro expansion text */
@@ -118,18 +118,18 @@ tok_next()
       tok_next();
       if (tok == 536) { /* is "define" ? */
         tok_next(); /* consume "define" */
-        symtab_append_char(' ');
+        symkey_append_char(' ');
         *(int*)tok = 1;  /* 1 means tok is preproc define */
-        *(int*)(tok+4) = symtab_end; /* expansion str in in the symtab buffer */
+        *(int*)(tok+4) = symkey_end; /* expansion str in in the symkey buffer */
       }
       /* note: if not "define", just ignore it */
       /* consume the rest of the preproc line */
       while (tokch != '\n') {
-        symtab_append_char(tokch);
+        symkey_append_char(tokch);
         char_next();
       }
-      symtab_append_char(tokch); /* append '\n' */
-      symtab_append_char(2); /* 2 is a sentinel for macro expansion */
+      symkey_append_char(tokch); /* append '\n' */
+      symkey_append_char(2); /* 2 is a sentinel for macro expansion */
     }
     char_next(); /* consume either <space> or preproc line-term '\n' */
   }
@@ -137,11 +137,11 @@ tok_next()
   prec = 0;
   tok = tokch;
   if (is_ident_char()) {
-    /* copy all ident chars into symtab buf */
-    symtab_append_char(' ');
-    ident_ptr = symtab_end;
+    /* copy all ident chars into symkey buf */
+    symkey_append_char(' ');
+    ident_ptr = symkey_end;
     while (is_ident_char()) {
-      symtab_append_char(tokch);
+      symkey_append_char(tokch);
       char_next();
     }
 
@@ -152,11 +152,11 @@ tok_next()
     }
     else {
       /* keyword? */
-      *(char*)symtab_end = ' ';
+      *(char*)symkey_end = ' ';
 
-      /* Search symtab array: find offset in array of matching string */
-      tok = strstr(symtab_base, ident_ptr-1) - symtab_base;
-      *(char*)symtab_end = 0;
+      /* Search symkey array: find offset in array of matching string */
+      tok = strstr(symkey_base, ident_ptr-1) - symkey_base;
+      *(char*)symkey_end = 0;
 
       /* Convert offset to a 'tok' value via a formula:
            "int"    => 256 + 8*0  => 256
@@ -174,7 +174,7 @@ tok_next()
 
       if (tok > 536) {
         /* Not a keyword.. assume ident */
-        tok = symbol_addrs + tok; /* tok = "ptr to symbol addr" */
+        tok = symval_base + tok; /* tok = "ptr to symbol addr" */
         if (*(int*)tok == 1) { /* define macro needing expansion? */
           macro_text = *(int*)(tok + 4);
           next_char_after_macro = tokch;
@@ -366,11 +366,16 @@ emit_mem_op(op, addr)
   emit_with_imm32((addr < 512) << 7 | 5, addr); /* (addr < 512) is true for locals */
 }
 
-/* compile a lvalue or rvalue, 'arg' could be named 'allow_lvalue' but
-   the variable is abused later to mean 'param_offset' for pushing call args
-   to the stack */
-compile_value(arg)
+compile_unary(arg)
 {
+  /* Compile a unary expressions and "atoms" including: string-literals, number-literals,
+     cast-and-deref operations, address-of, variable loads / stores, and function calls.
+     Also, handle grouping "( EXPR )" recursions
+
+     Parameter 'arg' could be named 'allow_lvalue' but the variable is abused later to
+     mean 'param_offset' for pushing call args to the stack
+  */
+
   int prec_save;
   int data_save;
   int tok_save;
@@ -406,7 +411,7 @@ compile_value(arg)
       emit_num(data_save);
     }
     else if (prec_save == 2) { /* unary compares?? */
-      compile_value(0);
+      compile_unary(0);
       emit_with_imm32(185, 0); /* mov ecx, 0 (use 0 to convery binary ops to unary ops) */
       if (tok_save == '!') emit_compare(data_save);
       else emit(data_save); /* unary '+', '-', '~' */
@@ -428,7 +433,7 @@ compile_value(arg)
         tok_save = 0; /* 0 means "function pointer" */
       }
       tok_next(); /* consume ')' */
-      compile_value(0); /* compile value, producing address in eax */
+      compile_unary(0); /* compile value, producing address in eax */
       if (tok == '=') { /* assign lvalue? */
         tok_next(); /* consume '=' */
         emit(80); /* push eax (save lvalue addr) */
@@ -501,7 +506,7 @@ compile_expr_prec(level)
 {
   /* A fun thing: level gets decremented right away, so there's actually no
      code here to handle the prec == 11 level, aka "++" and "--". How is that
-     handled? Over in compile_value() as a special case of course :-)
+     handled? Over in compile_unary() as a special case of course :-)
 
      In fact, prec==11 seems to be another fun hack also because "++" absolutely
      binds tighter than "&&" (prec: 10). So, prec=11 here is just an "ignore this" trick :-)
@@ -509,7 +514,7 @@ compile_expr_prec(level)
 
   int data_save, tok_save, patch_chain;
 
-  if (level-- == 1) compile_value(1); /* base case: compile "value" */
+  if (level-- == 1) compile_unary(1); /* base case */
   else {
     compile_expr_prec(level); /* process all expressions below this level */
     patch_chain = 0;
@@ -683,14 +688,14 @@ main(argc, argv)
     input_fp = fopen(*(int*)argv,"r");
   }
 
-  symtab_end = strcpy(symtab_base = calloc(1,99999)," int if else while break return for define main ") + 48;
+  symkey_end = strcpy(symkey_base = calloc(1,99999)," int if else while break return for define main ") + 48;
   globdata_end = calloc(1,99999);
   codegen_ptr = codegen_base = calloc(1,99999);
-  symbol_addrs = calloc(1,99999);
+  symval_base = calloc(1,99999);
 
   char_next();
   tok_next();
   compile_decls(0);
 
-  return (*(int(*)())*(int*)(symbol_addrs+592))(argc, argv); /* Call main */
+  return (*(int(*)())*(int*)(symval_base+592))(argc, argv); /* Call main */
 }
